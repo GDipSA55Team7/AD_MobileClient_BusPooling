@@ -2,33 +2,31 @@ package sg.nus.iss.team7.buspooling.mobileadapp;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
-import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.Window;
-import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
+import android.widget.TextView;
 import android.widget.Toast;
+
+import com.google.gson.Gson;
 
 import java.io.IOException;
 
-import okhttp3.OkHttpClient;
-import okhttp3.logging.HttpLoggingInterceptor;
 import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
 import retrofit2.Retrofit;
-import retrofit2.converter.gson.GsonConverterFactory;
 import sg.nus.iss.team7.buspooling.mobileadapp.model.CustomerDTO;
 import sg.nus.iss.team7.buspooling.mobileadapp.retrofit.ApiMethods;
-import sg.nus.iss.team7.buspooling.mobileadapp.retrofit.ApiUtility;
 import sg.nus.iss.team7.buspooling.mobileadapp.retrofit.RetroFitClient;
+import sg.nus.iss.team7.buspooling.mobileadapp.utility.UtilityConstant;
 
 public class RegisterActivity extends AppCompatActivity {
 
@@ -46,13 +44,13 @@ public class RegisterActivity extends AppCompatActivity {
         initElements();
 
         mRegister = findViewById(R.id.register);
+
         mRegister.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                //if validated
+
                 if(!allFieldsValid()){
-                    Toast.makeText(getApplicationContext(),"hi" + nameIsValid + usernameIsValid +passwordIsValid + emailIsValid + postalCodeIsValid +addressIsValid,Toast.LENGTH_LONG).show();
-                    //Toast.makeText(getApplicationContext(),"Pls ensure fields are completed or in the right format" + nameIsValid + usernameIsValid +passwordIsValid+emailIsValid+postalCodeIsValid+addressIsValid,Toast.LENGTH_SHORT).show();
+                    Toast.makeText(getApplicationContext(),"Pls complete all fields" ,Toast.LENGTH_SHORT).show();
                 }
                 else{
                     //store into shared Pref
@@ -89,7 +87,11 @@ public class RegisterActivity extends AppCompatActivity {
                         public void onResponse(Call<CustomerDTO> call, Response<CustomerDTO> response) {
                             if(response.isSuccessful()){
                                 CustomerDTO newRegisteredCustomer = response.body();
-                                Toast.makeText(getApplicationContext(),"Register successful" + newRegisteredCustomer,Toast.LENGTH_SHORT).show();
+                                Toast.makeText(getApplicationContext(),"Register successful, welcome " + newRegisteredCustomer.getName(),Toast.LENGTH_SHORT).show();
+                                storeUserDetailsInSharedPref(newRegisteredCustomer);
+                                launchSelectGroupActivity();
+
+
                             }
                             else{
                                 int statusCode = response.code();
@@ -109,11 +111,6 @@ public class RegisterActivity extends AppCompatActivity {
                         }
                     });
                 }
-
-                //Register success
-//                    startActivity(new Intent(StartActivity.this, StartActivityPart2.class));
-//                    Toast.makeText(StartActivity.this, "Your account is suspended.", Toast.LENGTH_SHORT).show();
-//                    finish();
             }
         });
 
@@ -122,11 +119,9 @@ public class RegisterActivity extends AppCompatActivity {
             @Override
             public void onClick(View v) {
                 LinearLayout linearLayout =  findViewById(R.id.linearlayoutRegisterActivity);
-                clearForm(linearLayout);
+                clearAllFields(linearLayout);
             }
         });
-
-
     }
 
     private void initElements(){
@@ -296,7 +291,8 @@ public class RegisterActivity extends AppCompatActivity {
             return false;
         }
     }
-    private void clearForm(ViewGroup group) {
+
+    private void clearAllFields(ViewGroup group) {
         for (int i = 0, count = group.getChildCount(); i < count; ++i) {
             View view = group.getChildAt(i);
             if (view instanceof EditText) {
@@ -304,8 +300,21 @@ public class RegisterActivity extends AppCompatActivity {
             }
 
             if(view instanceof ViewGroup && (((ViewGroup)view).getChildCount() > 0))
-                clearForm((ViewGroup)view);
+                clearAllFields((ViewGroup)view);
         }
+    }
+
+    private void launchSelectGroupActivity(){
+        Intent intent = new Intent(RegisterActivity.this,SelectGroupActivity.class);
+        startActivity(intent);
+        finish();
+    }
+
+    private void storeUserDetailsInSharedPref(CustomerDTO customerDTO){
+        Gson gson = new Gson();
+        String json = gson.toJson(customerDTO);
+        SharedPreferences sharedPreferences = getSharedPreferences(UtilityConstant.CUSTOMER_CREDENTIALS, MODE_PRIVATE);
+        sharedPreferences.edit().putString(UtilityConstant.CUSTOMER, json).apply();
     }
 
 }

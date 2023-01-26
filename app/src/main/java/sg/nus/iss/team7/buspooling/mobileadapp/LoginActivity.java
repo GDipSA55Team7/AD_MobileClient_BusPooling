@@ -2,30 +2,28 @@ package sg.nus.iss.team7.buspooling.mobileadapp;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import android.app.AlertDialog;
+import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Bundle;
-import android.util.Log;
 import android.view.View;
-import android.view.ViewGroup;
-import android.view.Window;
-import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Toast;
 
+import com.google.gson.Gson;
+
 import java.io.IOException;
 
-import okhttp3.OkHttpClient;
-import okhttp3.logging.HttpLoggingInterceptor;
 import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
 import retrofit2.Retrofit;
-import retrofit2.converter.gson.GsonConverterFactory;
 import sg.nus.iss.team7.buspooling.mobileadapp.model.CustomerDTO;
 import sg.nus.iss.team7.buspooling.mobileadapp.retrofit.ApiMethods;
-import sg.nus.iss.team7.buspooling.mobileadapp.retrofit.ApiUtility;
 import sg.nus.iss.team7.buspooling.mobileadapp.retrofit.RetroFitClient;
+import sg.nus.iss.team7.buspooling.mobileadapp.utility.UtilityConstant;
 
 public class LoginActivity extends AppCompatActivity {
 
@@ -34,8 +32,12 @@ public class LoginActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
         setContentView(R.layout.activity_login);
+
+        if(isLoggedIn()) {
+            //go to selectGroupActivity
+            launchSelectGroupActivity();
+        }
 
         mUsername = findViewById(R.id.username);
         mPassword = findViewById(R.id.password);
@@ -78,8 +80,12 @@ public class LoginActivity extends AppCompatActivity {
                         @Override
                         public void onResponse(Call<CustomerDTO> call, Response<CustomerDTO> response) {
                             if(response.isSuccessful()){
-                                CustomerDTO newRegisteredCustomer = response.body();
-                                Toast.makeText(getApplicationContext(),"Login successful" + newRegisteredCustomer,Toast.LENGTH_SHORT).show();
+                                CustomerDTO currentCustomer = response.body();
+                                Toast.makeText(getApplicationContext(),"Login successful, welcome " + currentCustomer.getName(),Toast.LENGTH_SHORT).show();
+                                storeUserDetailsInSharedPref(currentCustomer);
+                                launchSelectGroupActivity();
+
+
                             }
                             else {
                                 int statusCode = response.code();
@@ -115,11 +121,43 @@ public class LoginActivity extends AppCompatActivity {
         });
     }
 
-    public void launchRegisterActivity(){
+    @Override
+    public void onBackPressed() {
+        new AlertDialog.Builder(this)
+                .setIcon(R.drawable.ic_exit_application)
+                .setTitle("Leaving Application")
+                .setMessage("Are you sure you want to exit?")
+                .setCancelable(false)
+                .setPositiveButton("Yes", new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int id) {
+                        LoginActivity.super.onBackPressed();
+                    }
+                })
+                .setNegativeButton("No", null)
+                .show();
+    }
+
+    private void launchRegisterActivity(){
         Intent intent = new Intent(LoginActivity.this,RegisterActivity.class);
         startActivity(intent);
     }
-
-
+    private void launchSelectGroupActivity(){
+        Intent intent = new Intent(LoginActivity.this,SelectGroupActivity.class);
+        startActivity(intent);
+        finish();
+    }
+    private boolean isLoggedIn(){
+        SharedPreferences userDetailsSharedPref = getSharedPreferences("userDetails",MODE_PRIVATE);
+        if(userDetailsSharedPref.contains("username") && userDetailsSharedPref.contains("password")){
+            return true;
+        }
+        return false;
+    }
+    private void storeUserDetailsInSharedPref(CustomerDTO customerDTO){
+        Gson gson = new Gson();
+        String json = gson.toJson(customerDTO);
+        SharedPreferences sharedPreferences = getSharedPreferences(UtilityConstant.CUSTOMER_CREDENTIALS, MODE_PRIVATE);
+        sharedPreferences.edit().putString(UtilityConstant.CUSTOMER, json).apply();
+    }
 
 }
