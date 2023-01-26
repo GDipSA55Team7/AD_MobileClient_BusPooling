@@ -15,16 +15,6 @@ public class SplashScreenActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-
-        //hide the title bar and enable full screen mode in an Android app.
-        //https://www.javatpoint.com/android-hide-title-bar-example
-        //  hides the title.
-        requestWindowFeature(Window.FEATURE_NO_TITLE);
-        // getSupportActionBar() method to hide the title bar.
-        getSupportActionBar().hide();
-        // set flags for full screen mode , with the FLAG_FULLSCREEN flag being set for the WindowManager.LayoutParams.
-        this.getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN); //enable full screen
-
         setContentView(R.layout.splashscreen_activity);
 
         // Use a thread to delay the splash screen for 2.5 seconds
@@ -37,4 +27,5 @@ public class SplashScreenActivity extends AppCompatActivity {
             }
         }, 2500); // 2.5 seconds delay
     }
+
 }

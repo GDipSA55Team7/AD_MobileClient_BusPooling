@@ -6,12 +6,17 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.Window;
 import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Toast;
 
+import java.io.IOException;
+
+import okhttp3.OkHttpClient;
+import okhttp3.logging.HttpLoggingInterceptor;
 import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
@@ -20,25 +25,15 @@ import retrofit2.converter.gson.GsonConverterFactory;
 import sg.nus.iss.team7.buspooling.mobileadapp.model.CustomerDTO;
 import sg.nus.iss.team7.buspooling.mobileadapp.retrofit.ApiMethods;
 import sg.nus.iss.team7.buspooling.mobileadapp.retrofit.ApiUtility;
+import sg.nus.iss.team7.buspooling.mobileadapp.retrofit.RetroFitClient;
 
 public class LoginActivity extends AppCompatActivity {
 
     EditText mUsername,mPassword;
     Button loginBtn,registerBtn;
-    ApiMethods apiMethod;
-    CustomerDTO customer;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
-        //hide the title bar and enable full screen mode in an Android app.
-        //https://www.javatpoint.com/android-hide-title-bar-example
-        //  hides the title.
-        requestWindowFeature(Window.FEATURE_NO_TITLE);
-        // getSupportActionBar() method to hide the title bar.
-        getSupportActionBar().hide();
-        // set flags for full screen mode , with the FLAG_FULLSCREEN flag being set for the WindowManager.LayoutParams.
-        this.getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN); //enable full screen
 
         setContentView(R.layout.activity_login);
 
@@ -62,43 +57,50 @@ public class LoginActivity extends AppCompatActivity {
                 }
 
                 if(!username.isEmpty() && !password.isEmpty()){
+//                    HttpLoggingInterceptor interceptor = new HttpLoggingInterceptor();
+//                    interceptor.setLevel(HttpLoggingInterceptor.Level.BODY);
+//                    OkHttpClient client = new OkHttpClient.Builder().addInterceptor(interceptor).build();
+//
+//                    Retrofit retrofit = new Retrofit.Builder()
+//                            .baseUrl(ApiUtility.BASE_URL)
+//                            .client(client)
+//                            .addConverterFactory(GsonConverterFactory.create())
+//                            .build();
 
-                    // validate username,password with bg thread via rest api
-                    //create retrofit object and define base url
-                    Retrofit retrofit = new Retrofit.Builder()
-                            .baseUrl(ApiUtility.BASE_URL)
-                            .addConverterFactory(GsonConverterFactory.create())
-                            .build();
+                    Retrofit retrofit = RetroFitClient.getClient(RetroFitClient.BASE_URL);
+                    ApiMethods api = retrofit.create(ApiMethods.class);
 
-                    apiMethod = ApiUtility.getMethodCallAPI();
-
-                    new Thread(new Runnable() {
+                    CustomerDTO customerCheckValidLogin = new CustomerDTO();
+                    customerCheckValidLogin.setUsername(username);
+                    customerCheckValidLogin.setPassword(password);
+                    Call<CustomerDTO> loginCustomerCall = api.loginCustomer(customerCheckValidLogin);
+                    loginCustomerCall.enqueue(new Callback<CustomerDTO>() {
                         @Override
-                        public void run() {
-                            CustomerDTO customerCheckValidLogin = new CustomerDTO();
-                            customerCheckValidLogin.setUsername(username);
-                            customerCheckValidLogin.setPassword(password);
-                            Call<CustomerDTO> loginCustomerCall = apiMethod.loginCustomer(customerCheckValidLogin);
-                            loginCustomerCall.enqueue(new Callback<CustomerDTO>() {
-                                @Override
-                                public void onResponse(Call<CustomerDTO> call, Response<CustomerDTO> response) {
-                                    customer = response.body();
-                                    if(customer != null){
-                                        Toast.makeText(getApplicationContext(),"No such profile in our system",Toast.LENGTH_SHORT).show();
-                                    }
-                                    else{
-                                        Toast.makeText(getApplicationContext(),"Login successful",Toast.LENGTH_SHORT).show();
-                                    }
+                        public void onResponse(Call<CustomerDTO> call, Response<CustomerDTO> response) {
+                            if(response.isSuccessful()){
+                                CustomerDTO newRegisteredCustomer = response.body();
+                                Toast.makeText(getApplicationContext(),"Login successful" + newRegisteredCustomer,Toast.LENGTH_SHORT).show();
+                            }
+                            else {
+                                int statusCode = response.code();
+                                if (statusCode == 500) {
+                                    Toast.makeText(getApplicationContext(), "INTERNAL SERVER ERROR", Toast.LENGTH_SHORT).show();
                                 }
-                                @Override
-                                public void onFailure(Call<CustomerDTO> call, Throwable t) {
-                                    Toast.makeText(getApplicationContext(),"Error with login call",Toast.LENGTH_SHORT).show();
-                                    Log.i("ERROR: ", t.getMessage());
+                                else if (statusCode == 404){
+                                    Toast.makeText(getApplicationContext(), "No Such Registered User", Toast.LENGTH_SHORT).show();
                                 }
-                            });
+                            }
                         }
-                    }).start();
-
+                        @Override
+                        public void onFailure(Call<CustomerDTO> call, Throwable t) {
+                            if (t instanceof IOException) {
+                                Toast.makeText(LoginActivity.this, "Network Failure ", Toast.LENGTH_SHORT).show();
+                            }
+                            else {
+                                Toast.makeText(LoginActivity.this, "JSON Parsing Issue", Toast.LENGTH_SHORT).show();
+                            }
+                        }
+                    });
                 }
 
             }
@@ -116,8 +118,8 @@ public class LoginActivity extends AppCompatActivity {
     public void launchRegisterActivity(){
         Intent intent = new Intent(LoginActivity.this,RegisterActivity.class);
         startActivity(intent);
-        finish();
     }
+
 
 
 }

@@ -8,12 +8,18 @@ import android.text.Editable;
 import android.text.TextWatcher;
 import android.util.Log;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.Window;
 import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.LinearLayout;
 import android.widget.Toast;
 
+import java.io.IOException;
+
+import okhttp3.OkHttpClient;
+import okhttp3.logging.HttpLoggingInterceptor;
 import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
@@ -22,6 +28,7 @@ import retrofit2.converter.gson.GsonConverterFactory;
 import sg.nus.iss.team7.buspooling.mobileadapp.model.CustomerDTO;
 import sg.nus.iss.team7.buspooling.mobileadapp.retrofit.ApiMethods;
 import sg.nus.iss.team7.buspooling.mobileadapp.retrofit.ApiUtility;
+import sg.nus.iss.team7.buspooling.mobileadapp.retrofit.RetroFitClient;
 
 public class RegisterActivity extends AppCompatActivity {
 
@@ -34,21 +41,11 @@ public class RegisterActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        //hide the title bar and enable full screen mode in an Android app.
-        //https://www.javatpoint.com/android-hide-title-bar-example
-        //  hides the title.
-        requestWindowFeature(Window.FEATURE_NO_TITLE);
-        // getSupportActionBar() method to hide the title bar.
-        getSupportActionBar().hide();
-        // set flags for full screen mode , with the FLAG_FULLSCREEN flag being set for the WindowManager.LayoutParams.
-        this.getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN); //enable full screen
-
         setContentView(R.layout.activity_register);
 
         initElements();
 
         mRegister = findViewById(R.id.register);
-
         mRegister.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -58,61 +55,60 @@ public class RegisterActivity extends AppCompatActivity {
                     //Toast.makeText(getApplicationContext(),"Pls ensure fields are completed or in the right format" + nameIsValid + usernameIsValid +passwordIsValid+emailIsValid+postalCodeIsValid+addressIsValid,Toast.LENGTH_SHORT).show();
                 }
                 else{
-                    Toast.makeText(getApplicationContext(),"register validation went thru",Toast.LENGTH_LONG).show();
                     //store into shared Pref
                     SharedPreferences userDetailsSharedPref = getSharedPreferences("userDetails",MODE_PRIVATE);
                     SharedPreferences.Editor editor = userDetailsSharedPref.edit();
                     editor.putString("username",userName);
                     editor.putString("password",password);
                     editor.commit();
+
+                    //register via api must start bg thread
+
+                    //create retrofit object
+                    Retrofit retrofit = RetroFitClient.getClient(RetroFitClient.BASE_URL);
+                    ApiMethods api = retrofit.create(ApiMethods.class);
+
+                    String address = mAddress.getText().toString().trim();
+                    String postalCode = mPostalCode.getText().toString().trim();
+                    String userName = mUserName.getText().toString().trim();
+                    String password = mPassword.getText().toString().trim();
+                    String email = mEmail.getText().toString().trim();
+                    String name = mName.getText().toString().trim();
+                    CustomerDTO customer = new CustomerDTO();
+                    customer.setUsername(userName);
+                    customer.setAddress(address);
+                    customer.setPostalCode(postalCode);
+                    customer.setPassword(password);
+                    customer.setEmail(email);
+                    customer.setName(name);
+
+                    Call<CustomerDTO> registerNewCustomerCall = api.registerNewCustomer(customer);
+                    //enqueue is async call
+                    registerNewCustomerCall.enqueue(new Callback<CustomerDTO>() {
+                        @Override
+                        public void onResponse(Call<CustomerDTO> call, Response<CustomerDTO> response) {
+                            if(response.isSuccessful()){
+                                CustomerDTO newRegisteredCustomer = response.body();
+                                Toast.makeText(getApplicationContext(),"Register successful" + newRegisteredCustomer,Toast.LENGTH_SHORT).show();
+                            }
+                            else{
+                                int statusCode = response.code();
+                                if(statusCode == 500){
+                                    Toast.makeText(getApplicationContext(),"INTERNAL SERVER ERROR",Toast.LENGTH_SHORT).show();
+                                }
+                            }
+                        }
+                        @Override
+                        public void onFailure(Call<CustomerDTO> call, Throwable t) {
+                            if (t instanceof IOException) {
+                                Toast.makeText(RegisterActivity.this, "Network Failure ", Toast.LENGTH_SHORT).show();
+                            }
+                            else {
+                                Toast.makeText(RegisterActivity.this, "JSON Parsing Issue", Toast.LENGTH_SHORT).show();
+                            }
+                        }
+                    });
                 }
-
-
-                //register via api must start bg thread
-
-                //create retrofit object and define base url
-                Retrofit retrofit = new Retrofit.Builder()
-                        .baseUrl(ApiUtility.BASE_URL)
-                        .addConverterFactory(GsonConverterFactory.create())
-                        .build();
-
-                ApiMethods apiMethod = ApiUtility.getMethodCallAPI();
-
-                new Thread(new Runnable() {
-                    @Override
-                    public void run() {
-
-                        String address = mAddress.getText().toString().trim();
-                        String postalCode = mPostalCode.getText().toString().trim();
-                        CustomerDTO customer = new CustomerDTO();
-                        customer.setUsername(userName);
-                        customer.setAddress(address);
-                        customer.setPostalCode(postalCode);
-                        customer.setPassword(password);
-
-                        Call<CustomerDTO> registerNewCustomerCall = apiMethod.registerNewCustomer(customer);
-                        registerNewCustomerCall.enqueue(new Callback<CustomerDTO>() {
-                            @Override
-                            public void onResponse(Call<CustomerDTO> call, Response<CustomerDTO> response) {
-                                if(response.isSuccessful()){
-                                    CustomerDTO newRegisteredCustomer = response.body();
-                                    Toast.makeText(getApplicationContext(),"Login successful",Toast.LENGTH_SHORT).show();
-                                }
-                                else{
-                                    int statusCode = response.code();
-                                    if(statusCode == 500){
-                                        Toast.makeText(getApplicationContext(),"INTERNAL SERVER ERROR",Toast.LENGTH_SHORT).show();
-                                    }
-                                }
-                            }
-                            @Override
-                            public void onFailure(Call<CustomerDTO> call, Throwable t) {
-                                Toast.makeText(getApplicationContext(),"Error with login call",Toast.LENGTH_SHORT).show();
-                                Log.i("ERROR: ", t.getMessage());
-                            }
-                        });
-                    }
-                }).start();
 
                 //Register success
 //                    startActivity(new Intent(StartActivity.this, StartActivityPart2.class));
@@ -120,6 +116,16 @@ public class RegisterActivity extends AppCompatActivity {
 //                    finish();
             }
         });
+
+        Button clearFieldsBtn = findViewById(R.id.clearAllFields);
+        clearFieldsBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                LinearLayout linearLayout =  findViewById(R.id.linearlayoutRegisterActivity);
+                clearForm(linearLayout);
+            }
+        });
+
 
     }
 
@@ -140,7 +146,7 @@ public class RegisterActivity extends AppCompatActivity {
         mPostalCode.addTextChangedListener(postalCodeTextWatcher);
 
         mAddress = findViewById(R.id.address);
-        mAddress.addTextChangedListener(postalCodeTextWatcher);
+        mAddress.addTextChangedListener(addressTextWatcher);
     }
 
     private TextWatcher nameTextWatcher = new TextWatcher() {
@@ -188,7 +194,7 @@ public class RegisterActivity extends AppCompatActivity {
         }
         @Override
         public void onTextChanged(CharSequence charSequence, int i, int i1, int i2) {
-            addressIsValid  = updateErrorTxt(mAddress,"Address",5,80);
+            addressIsValid  = updateErrorTxt(mAddress,"Address",5,60);
         }
         @Override
         public void afterTextChanged(Editable editable) {
@@ -290,4 +296,16 @@ public class RegisterActivity extends AppCompatActivity {
             return false;
         }
     }
+    private void clearForm(ViewGroup group) {
+        for (int i = 0, count = group.getChildCount(); i < count; ++i) {
+            View view = group.getChildAt(i);
+            if (view instanceof EditText) {
+                ((EditText)view).setText("");
+            }
+
+            if(view instanceof ViewGroup && (((ViewGroup)view).getChildCount() > 0))
+                clearForm((ViewGroup)view);
+        }
+    }
+
 }

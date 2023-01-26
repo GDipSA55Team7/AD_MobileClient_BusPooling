@@ -1,32 +1,35 @@
 package sg.nus.iss.team7.buspooling.mobileadapp.model;
 
 import com.google.gson.annotations.Expose;
+import com.google.gson.annotations.SerializedName;
 
 public class CustomerDTO {
 
+    @SerializedName("userName")
+    @Expose
+    private String userName;
+    @SerializedName("name")
     @Expose
     private String name;
-
-    @Expose
-    private String username;
-
+    @SerializedName("password")
     @Expose
     private String password;
-
+    @SerializedName("email")
     @Expose
     private String email;
-
+    @SerializedName("address")
     @Expose
     private String address;
-
+    @SerializedName("postalCode")
     @Expose
     private String postalCode;
-
+    @SerializedName("latitude")
     @Expose
     private String latitude;
-
+    @SerializedName("longitude")
     @Expose
     private String longitude;
+
 
     public String getName() {
         return name;
@@ -37,11 +40,11 @@ public class CustomerDTO {
     }
 
     public String getUsername() {
-        return username;
+        return userName;
     }
 
     public void setUsername(String username) {
-        this.username = username;
+        this.userName = username;
     }
 
     public String getPassword() {
@@ -90,5 +93,19 @@ public class CustomerDTO {
 
     public void setLongitude(String longitude) {
         this.longitude = longitude;
+    }
+
+    @Override
+    public String toString() {
+        return "CustomerDTO{" +
+                "userName='" + userName + '\'' +
+                ", name='" + name + '\'' +
+                ", password='" + password + '\'' +
+                ", email='" + email + '\'' +
+                ", address='" + address + '\'' +
+                ", postalCode='" + postalCode + '\'' +
+                ", latitude='" + latitude + '\'' +
+                ", longitude='" + longitude + '\'' +
+                '}';
     }
 }
